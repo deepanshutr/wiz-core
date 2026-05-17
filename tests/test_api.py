@@ -202,3 +202,25 @@ def test_bulb_error_returns_504(tmp_path: Path) -> None:
 
     r = c.get("/bulbs/default")
     assert r.status_code == 504
+
+
+def test_list_includes_protocol(client) -> None:
+    c, *_ = client
+    r = c.get("/bulbs")
+    assert r.status_code == 200
+    bulbs = r.json()["bulbs"]
+    assert all(b["protocol"] == "wiz" for b in bulbs)
+
+
+def test_get_bulb_includes_protocol(client) -> None:
+    c, *_ = client
+    r = c.get("/bulb/d8a0118dc5c3")
+    assert r.status_code == 200
+    assert r.json()["protocol"] == "wiz"
+
+
+def test_default_bulb_includes_protocol(client) -> None:
+    c, *_ = client
+    r = c.get("/bulbs/default")
+    assert r.status_code == 200
+    assert r.json()["protocol"] == "wiz"

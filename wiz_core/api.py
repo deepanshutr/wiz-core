@@ -47,6 +47,7 @@ class DiscoverIn(BaseModel):
 
 def _bulb_payload(b: Bulb) -> dict[str, Any]:
     return {
+        "protocol": "wiz",
         "mac": b.mac,
         "name": b.name,
         "ip": b.last_ip,
