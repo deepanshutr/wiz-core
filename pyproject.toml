@@ -1,5 +1,5 @@
 [project]
-name = "philips-wiz-bulb-core"
+name = "wiz-core"
 version = "0.1.0"
 description = "Local HTTP daemon for controlling Philips WiZ smart bulbs"
 readme = "README.md"
@@ -33,11 +33,11 @@ dev = [
 ]
 
 [project.scripts]
-philips-wiz-bulb-core = "philips_wiz_bulb_core.cli:app"
+wiz-core = "wiz_core.cli:app"
 
 [project.urls]
-Homepage = "https://github.com/deepanshutr/philips-wiz-bulb-core"
-Issues = "https://github.com/deepanshutr/philips-wiz-bulb-core/issues"
+Homepage = "https://github.com/deepanshutr/wiz-core"
+Issues = "https://github.com/deepanshutr/wiz-core/issues"
 
 [build-system]
 requires = ["hatchling"]

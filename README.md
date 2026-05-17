@@ -1,4 +1,4 @@
-# philips-wiz-bulb-core
+# wiz-core
 
 Local HTTP daemon that controls Philips **WiZ** smart bulbs on the LAN
 via JSON over UDP 38899. Sister to
@@ -14,12 +14,12 @@ via JSON over UDP 38899. Sister to
 
 ```bash
 pip install -e .[dev]
-philips-wiz-bulb-core serve            # foreground
+wiz-core serve            # foreground
 # or as a systemd user unit:
 mkdir -p ~/.config/systemd/user
-cp systemd/philips-wiz-bulb-core.service ~/.config/systemd/user/
+cp systemd/wiz-core.service ~/.config/systemd/user/
 systemctl --user daemon-reload
-systemctl --user enable --now philips-wiz-bulb-core
+systemctl --user enable --now wiz-core
 ```
 
 ## Sibling repos

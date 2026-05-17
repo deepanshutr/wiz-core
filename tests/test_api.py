@@ -8,9 +8,9 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
-from philips_wiz_bulb_core.api import create_app
-from philips_wiz_bulb_core.bulb import BulbError
-from philips_wiz_bulb_core.registry import Registry
+from wiz_core.api import create_app
+from wiz_core.bulb import BulbError
+from wiz_core.registry import Registry
 
 
 class StubClient:

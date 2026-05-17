@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from philips_wiz_bulb_core.scenes import SCENES, resolve_scene
+from wiz_core.scenes import SCENES, resolve_scene
 
 
 def test_all_32_scenes_present() -> None:

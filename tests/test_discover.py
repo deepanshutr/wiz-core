@@ -6,8 +6,8 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from philips_wiz_bulb_core.bulb import BulbError
-from philips_wiz_bulb_core.discover import discover, parse_discovery_response
+from wiz_core.bulb import BulbError
+from wiz_core.discover import discover, parse_discovery_response
 
 
 def test_parse_response_extracts_mac_module() -> None:
@@ -40,7 +40,7 @@ async def test_discover_unicast_sweep_runs_on_every_host() -> None:
     client.get_pilot = AsyncMock(side_effect=fake_get_pilot)
 
     # Patch broadcast collect to a no-op so we exercise only the sweep path
-    with patch("philips_wiz_bulb_core.discover._broadcast_collect", AsyncMock(return_value=[])):
+    with patch("wiz_core.discover._broadcast_collect", AsyncMock(return_value=[])):
         bulbs = await discover(
             client,
             broadcast="192.168.1.255",
@@ -67,7 +67,7 @@ async def test_discover_broadcast_wins_on_mac_collision() -> None:
     client.get_pilot = AsyncMock(side_effect=fake_get_pilot)
 
     with patch(
-        "philips_wiz_bulb_core.discover._broadcast_collect",
+        "wiz_core.discover._broadcast_collect",
         AsyncMock(return_value=[broadcast_bulb]),
     ):
         bulbs = await discover(
@@ -96,8 +96,8 @@ async def test_discover_sweep_probe_errors_logged_not_raised(
     client = AsyncMock()
     client.get_pilot = AsyncMock(side_effect=fake_get_pilot)
 
-    with patch("philips_wiz_bulb_core.discover._broadcast_collect", AsyncMock(return_value=[])):
-        caplog.set_level(logging.DEBUG, logger="philips_wiz_bulb_core.discover")
+    with patch("wiz_core.discover._broadcast_collect", AsyncMock(return_value=[])):
+        caplog.set_level(logging.DEBUG, logger="wiz_core.discover")
         bulbs = await discover(
             client,
             broadcast="192.168.1.255",

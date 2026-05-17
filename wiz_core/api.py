@@ -65,7 +65,7 @@ def create_app(
     bulb: _BulbDriver,
     run_discovery: Callable[[], Coroutine[Any, Any, int]],
 ) -> FastAPI:
-    app = FastAPI(title="philips-wiz-bulb-core")
+    app = FastAPI(title="wiz-core")
 
     def resolve_or_404(target: str) -> Bulb:
         b = registry.resolve(target)

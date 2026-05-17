@@ -24,9 +24,9 @@ jobs:
       - name: Install
         run: uv pip install --system -e .[dev]
       - name: Ruff
-        run: ruff check philips_wiz_bulb_core tests
+        run: ruff check wiz_core tests
       - name: Mypy
-        run: mypy philips_wiz_bulb_core
+        run: mypy wiz_core
         continue-on-error: true
       - name: Pytest
         run: pytest -v

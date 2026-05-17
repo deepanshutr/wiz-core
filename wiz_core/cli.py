@@ -1,4 +1,4 @@
-"""Operator CLI: `philips-wiz-bulb-core serve` / `discover` / `list`."""
+"""Operator CLI: `wiz-core serve` / `discover` / `list`."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ import uvicorn
 
 from .config import load as load_settings
 
-app = typer.Typer(no_args_is_help=True, help="philips-wiz-bulb-core operator CLI")
+app = typer.Typer(no_args_is_help=True, help="wiz-core operator CLI")
 
 
 @app.command()
@@ -21,7 +21,7 @@ def serve(bind: str = typer.Option(None, "--bind", help="Override PHILIPS_WIZ_BU
     host_port = bind or settings.bind
     host, port_s = host_port.rsplit(":", 1)
     uvicorn.run(
-        "philips_wiz_bulb_core.main:app",
+        "wiz_core.main:app",
         host=host,
         port=int(port_s),
         log_level=settings.log_level.lower(),

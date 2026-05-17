@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from philips_wiz_bulb_core.registry import Registry
+from wiz_core.registry import Registry
 
 
 @pytest.fixture()

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from philips_wiz_bulb_core.config import Settings
+from wiz_core.config import Settings
 
 
 def test_defaults_apply(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -1,12 +1,12 @@
 [Unit]
-Description=philips-wiz-bulb-core — Philips WiZ smart-bulb control daemon
+Description=wiz-core — Philips WiZ smart-bulb control daemon
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=simple
 EnvironmentFile=-%h/.config/philips-wiz-bulb/state.env
-ExecStart=%h/.local/bin/philips-wiz-bulb-core serve
+ExecStart=%h/.local/bin/wiz-core serve
 Restart=on-failure
 RestartSec=5
 

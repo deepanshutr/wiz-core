@@ -7,7 +7,7 @@ import json
 
 import pytest
 
-from philips_wiz_bulb_core.bulb import BulbClient, BulbError
+from wiz_core.bulb import BulbClient, BulbError
 
 
 class FakeBulbServer:

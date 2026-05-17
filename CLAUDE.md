@@ -1,4 +1,4 @@
-# CLAUDE.md — philips-wiz-bulb-core
+# CLAUDE.md — wiz-core
 
 Local HTTP daemon for Philips WiZ smart bulbs.
 
@@ -18,10 +18,10 @@ Local HTTP daemon for Philips WiZ smart bulbs.
 
 ## systemd
 
-- User unit: `~/.config/systemd/user/philips-wiz-bulb-core.service`
-  (copied from `systemd/philips-wiz-bulb-core.service`)
-- `systemctl --user restart philips-wiz-bulb-core`
-- `journalctl --user -u philips-wiz-bulb-core -f`
+- User unit: `~/.config/systemd/user/wiz-core.service`
+  (copied from `systemd/wiz-core.service`)
+- `systemctl --user restart wiz-core`
+- `journalctl --user -u wiz-core -f`
 
 ## Don't repeat
 
