@@ -15,7 +15,7 @@ app = typer.Typer(no_args_is_help=True, help="wiz-core operator CLI")
 
 
 @app.command()
-def serve(bind: str = typer.Option(None, "--bind", help="Override PHILIPS_WIZ_BULB_BIND")) -> None:
+def serve(bind: str = typer.Option(None, "--bind", help="Override WIZ_BIND")) -> None:
     """Run the HTTP daemon."""
     settings = load_settings()
     host_port = bind or settings.bind

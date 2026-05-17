@@ -10,7 +10,7 @@ import pytest
 @pytest.fixture()
 def tmp_state_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """Per-test config dir, isolated from the host's real ~/.config."""
-    state = tmp_path / "philips-wiz-bulb"
+    state = tmp_path / "wiz"
     state.mkdir()
-    monkeypatch.setenv("PHILIPS_WIZ_BULB_STATE_DIR", str(state))
+    monkeypatch.setenv("WIZ_STATE_DIR", str(state))
     return state

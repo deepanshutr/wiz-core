@@ -10,8 +10,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_prefix="PHILIPS_WIZ_BULB_",
-        env_file=(".env", str(Path.home() / ".config" / "philips-wiz-bulb" / "state.env")),
+        env_prefix="WIZ_",
+        env_file=(".env", str(Path.home() / ".config" / "wiz" / "state.env")),
         env_file_encoding="utf-8",
         extra="ignore",
     )
@@ -23,7 +23,7 @@ class Settings(BaseSettings):
     discover_interval_s: int = Field(600, description="Full re-discover cadence")
     log_level: str = Field("INFO", description="Python logging level")
     state_dir: Path = Field(
-        default_factory=lambda: Path.home() / ".config" / "philips-wiz-bulb",
+        default_factory=lambda: Path.home() / ".config" / "wiz",
         description="Where state.json lives",
     )
 

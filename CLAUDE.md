@@ -6,15 +6,15 @@ Local HTTP daemon for Philips WiZ smart bulbs.
 
 - Python 3.11+
 - All identifiers (subnet, broadcast addr, bulb IPs) come from env or
-  `~/.config/philips-wiz-bulb/state.json`. **Never hard-code IPs in source.**
+  `~/.config/wiz/state.json`. **Never hard-code IPs in source.**
 - WiZ uses JSON over UDP 38899. `getPilot` / `setPilot` / `getSystemConfig`.
 - Tests use `pytest`; `asyncio_mode = "auto"`.
 - Run `ruff check`, `mypy`, `pytest -v` before commit.
 
 ## Local state (gitignored)
 
-- `~/.config/philips-wiz-bulb/state.json` — bulb registry (mode 0600)
-- `~/.config/philips-wiz-bulb/state.env` — env overrides
+- `~/.config/wiz/state.json` — bulb registry (mode 0600)
+- `~/.config/wiz/state.env` — env overrides
 
 ## systemd
 

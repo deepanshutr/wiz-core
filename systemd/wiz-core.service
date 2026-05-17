@@ -5,7 +5,7 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-EnvironmentFile=-%h/.config/philips-wiz-bulb/state.env
+EnvironmentFile=-%h/.config/wiz/state.env
 ExecStart=%h/.local/bin/wiz-core serve
 Restart=on-failure
 RestartSec=5
@@ -15,7 +15,7 @@ RestartSec=5
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
-ReadWritePaths=%h/.config/philips-wiz-bulb
+ReadWritePaths=%h/.config/wiz
 
 [Install]
 WantedBy=default.target
