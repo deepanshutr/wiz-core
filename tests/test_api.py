@@ -224,3 +224,20 @@ def test_default_bulb_includes_protocol(client) -> None:
     r = c.get("/bulbs/default")
     assert r.status_code == 200
     assert r.json()["protocol"] == "wiz"
+
+
+def test_onboard_returns_501_structured(client) -> None:
+    """ESP-TOUCH not implemented yet; route exists for contract parity."""
+    c, *_ = client
+    r = c.post("/onboard", json={"ssid": "home", "password": "pw", "timeout_s": 30})
+    assert r.status_code == 501
+    detail = r.json()["detail"]
+    assert detail["error"] == "wiz_onboard_not_implemented"
+    assert "WiZ mobile app" in detail["message"]
+    assert detail["requested"]["ssid"] == "home"
+
+
+def test_onboard_validates_required_fields(client) -> None:
+    c, *_ = client
+    r = c.post("/onboard", json={"password": "pw"})
+    assert r.status_code == 422  # missing ssid

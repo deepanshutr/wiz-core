@@ -45,6 +45,12 @@ class DiscoverIn(BaseModel):
     passive: bool = False
 
 
+class OnboardIn(BaseModel):
+    ssid: str = Field(min_length=1, max_length=64)
+    password: str = Field(min_length=1, max_length=128)
+    timeout_s: int = Field(60, ge=10, le=300)
+
+
 def _bulb_payload(b: Bulb) -> dict[str, Any]:
     return {
         "protocol": "wiz",
@@ -155,5 +161,29 @@ def create_app(
     @app.get("/scenes")
     async def scenes() -> dict[str, Any]:
         return {"scenes": [{"id": sid, "name": nm} for sid, nm in sorted(SCENES.items())]}
+
+    @app.post("/onboard")
+    async def onboard_route(body: OnboardIn) -> dict[str, Any]:
+        # WiZ bulbs in setup mode (wiz_* SSID) use Espressif's ESP-TOUCH
+        # protocol to receive Wi-Fi credentials. No published Python lib
+        # implements it cleanly; rolling our own is timing-sensitive UDP
+        # that's hard to test without a live setup-mode bulb. For now,
+        # this endpoint returns 501 with structured guidance; the
+        # multiplexer (bulb-mcp/cli) surfaces it as "use WiZ app".
+        # See spec §4.1 + plan task 8 fallback note.
+        raise HTTPException(
+            status_code=501,
+            detail={
+                "error": "wiz_onboard_not_implemented",
+                "message": (
+                    "WiZ ESP-TOUCH onboarding is not implemented yet "
+                    "(no working PyPI lib; manual implementation deferred). "
+                    "Use the WiZ mobile app to onboard new bulbs; they "
+                    "will appear in the registry within ~10min via the "
+                    "background rediscover loop."
+                ),
+                "requested": {"ssid": body.ssid, "timeout_s": body.timeout_s},
+            },
+        )
 
     return app
