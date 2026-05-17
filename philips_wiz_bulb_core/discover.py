@@ -97,14 +97,24 @@ async def discover(
     broadcast: str,
     subnet: str,
     broadcast_collect_s: float = 3.0,
+    sweep_client: BulbClient | None = None,
 ) -> list[dict[str, Any]]:
     """Discover bulbs: broadcast first, then unicast-sweep to catch AP isolation.
 
     Returns a list of normalised bulb dicts deduped by MAC (broadcast wins).
+
+    `client` is used for general daemon-side calls (typically the same
+    BulbClient instance the rest of the app uses, with retries enabled).
+    `sweep_client` is used for the speculative subnet sweep; when omitted,
+    a dedicated retries=0 client is constructed because retrying empty IPs
+    turns a 9s sweep into a 30s+ sweep without finding more bulbs. Tests
+    can inject `sweep_client=mock` to verify probe behaviour.
     """
+    if sweep_client is None:
+        sweep_client = BulbClient(retries=0, timeout=1.5)
     seen: dict[str, dict[str, Any]] = {}
     for bulb in await _broadcast_collect(broadcast, DEFAULT_PORT, broadcast_collect_s):
         seen[bulb["mac"]] = bulb
-    for bulb in await _sweep_subnet(client, subnet):
+    for bulb in await _sweep_subnet(sweep_client, subnet):
         seen.setdefault(bulb["mac"], bulb)
     return list(seen.values())

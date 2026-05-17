@@ -46,6 +46,7 @@ async def test_discover_unicast_sweep_runs_on_every_host() -> None:
             broadcast="192.168.1.255",
             subnet="192.168.1.0/30",  # hosts: .1, .2
             broadcast_collect_s=0.0,
+            sweep_client=client,
         )
 
     assert sorted(probed) == ["192.168.1.1", "192.168.1.2"]
@@ -74,6 +75,7 @@ async def test_discover_broadcast_wins_on_mac_collision() -> None:
             broadcast="192.168.1.255",
             subnet="192.168.1.0/30",
             broadcast_collect_s=0.0,
+            sweep_client=client,
         )
 
     assert len(bulbs) == 1
@@ -101,6 +103,7 @@ async def test_discover_sweep_probe_errors_logged_not_raised(
             broadcast="192.168.1.255",
             subnet="192.168.1.0/30",
             broadcast_collect_s=0.0,
+            sweep_client=client,
         )
 
     assert bulbs == []
