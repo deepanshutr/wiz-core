@@ -9,6 +9,8 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
 from .bulb import BulbError
+from .onboard import OnboardResult
+from .onboard import onboard as run_onboard
 from .registry import Bulb, Registry
 from .scenes import SCENES, resolve_scene
 
@@ -170,26 +172,31 @@ def create_app(
 
     @app.post("/onboard")
     async def onboard_route(body: OnboardIn) -> dict[str, Any]:
-        # WiZ bulbs in setup mode (wiz_* SSID) use Espressif's ESP-TOUCH
-        # protocol to receive Wi-Fi credentials. No published Python lib
-        # implements it cleanly; rolling our own is timing-sensitive UDP
-        # that's hard to test without a live setup-mode bulb. For now,
-        # this endpoint returns 501 with structured guidance; the
-        # multiplexer (bulb-mcp/cli) surfaces it as "use WiZ app".
-        # See spec §4.1 + plan task 8 fallback note.
+        # ESP-TOUCH (Espressif SmartConfig): broadcast length-encoded
+        # Wi-Fi credentials to a setup-mode WiZ bulb, poll discovery for
+        # the new MAC. Contract is pinned by amendment §A1. The protocol
+        # itself lives in the standalone `esptouch` library (a dependency).
+        result: OnboardResult = await run_onboard(
+            ssid=body.ssid,
+            password=body.password,
+            timeout_s=body.timeout_s,
+            registry=registry,
+            run_discovery=run_discovery,
+        )
+        if result.status == "ok":
+            return {"onboarded": result.onboarded}
+        if result.status == "timeout":
+            raise HTTPException(
+                status_code=408,
+                detail={
+                    "error": "timeout",
+                    "attempted_seconds": result.attempted_seconds,
+                },
+            )
+        # result.status == "error"
         raise HTTPException(
-            status_code=501,
-            detail={
-                "error": "wiz_onboard_not_implemented",
-                "message": (
-                    "WiZ ESP-TOUCH onboarding is not implemented yet "
-                    "(no working PyPI lib; manual implementation deferred). "
-                    "Use the WiZ mobile app to onboard new bulbs; they "
-                    "will appear in the registry within ~10min via the "
-                    "background rediscover loop."
-                ),
-                "requested": {"ssid": body.ssid, "timeout_s": body.timeout_s},
-            },
+            status_code=500,
+            detail={"error": "esptouch_internal", "detail": result.detail},
         )
 
     return app

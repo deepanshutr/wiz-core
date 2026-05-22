@@ -226,21 +226,78 @@ def test_default_bulb_includes_protocol(client) -> None:
     assert r.json()["protocol"] == "wiz"
 
 
-def test_onboard_returns_501_structured(client) -> None:
-    """ESP-TOUCH not implemented yet; route exists for contract parity."""
+def test_onboard_returns_200_with_onboarded_bulbs(client, mocker) -> None:
+    """A successful onboard returns 200 and an 'onboarded' array (§A1)."""
+    from wiz_core.onboard import OnboardResult
+
+    async def fake_onboard(**kwargs):
+        return OnboardResult(
+            status="ok",
+            onboarded=[
+                {"mac": "d8a0118deeff", "ip": "192.168.1.9",
+                 "name": "bulb-2", "rssi": -55}
+            ],
+        )
+
+    mocker.patch("wiz_core.api.run_onboard", new=fake_onboard)
     c, *_ = client
     r = c.post("/onboard", json={"ssid": "home", "password": "pw", "timeout_s": 30})
-    assert r.status_code == 501
-    detail = r.json()["detail"]
-    assert detail["error"] == "wiz_onboard_not_implemented"
-    assert "WiZ mobile app" in detail["message"]
-    assert detail["requested"]["ssid"] == "home"
+    assert r.status_code == 200
+    body = r.json()
+    assert body["onboarded"][0]["mac"] == "d8a0118deeff"
+    assert body["onboarded"][0]["name"] == "bulb-2"
 
 
-def test_onboard_validates_required_fields(client) -> None:
+def test_onboard_returns_408_on_timeout(client, mocker) -> None:
+    """No bulb joined -> HTTP 408 with error 'timeout' (§A1)."""
+    from wiz_core.onboard import OnboardResult
+
+    async def fake_onboard(**kwargs):
+        return OnboardResult(status="timeout", attempted_seconds=30)
+
+    mocker.patch("wiz_core.api.run_onboard", new=fake_onboard)
+    c, *_ = client
+    r = c.post("/onboard", json={"ssid": "home", "password": "pw", "timeout_s": 30})
+    assert r.status_code == 408
+    body = r.json()
+    assert body["detail"]["error"] == "timeout"
+    assert body["detail"]["attempted_seconds"] == 30
+
+
+def test_onboard_returns_500_on_internal_error(client, mocker) -> None:
+    """An esptouch failure -> HTTP 500 with error 'esptouch_internal' (§A1)."""
+    from wiz_core.onboard import OnboardResult
+
+    async def fake_onboard(**kwargs):
+        return OnboardResult(status="error", detail="socket bind failed")
+
+    mocker.patch("wiz_core.api.run_onboard", new=fake_onboard)
+    c, *_ = client
+    r = c.post("/onboard", json={"ssid": "home", "password": "pw", "timeout_s": 30})
+    assert r.status_code == 500
+    body = r.json()
+    assert body["detail"]["error"] == "esptouch_internal"
+    assert "socket bind failed" in body["detail"]["detail"]
+
+
+def test_onboard_returns_422_on_missing_ssid(client) -> None:
+    """Bad input is rejected by pydantic with HTTP 422 (§A1)."""
     c, *_ = client
     r = c.post("/onboard", json={"password": "pw"})
-    assert r.status_code == 422  # missing ssid
+    assert r.status_code == 422  # missing ssid; pydantic-generated
+
+
+def test_onboard_no_longer_returns_501(client, mocker) -> None:
+    """Regression guard: the 501 branch is gone for good."""
+    from wiz_core.onboard import OnboardResult
+
+    async def fake_onboard(**kwargs):
+        return OnboardResult(status="timeout", attempted_seconds=30)
+
+    mocker.patch("wiz_core.api.run_onboard", new=fake_onboard)
+    c, *_ = client
+    r = c.post("/onboard", json={"ssid": "home", "password": "pw", "timeout_s": 30})
+    assert r.status_code != 501
 
 
 def test_onboard_tolerates_extra_setup_ssid_field(client, mocker) -> None:
