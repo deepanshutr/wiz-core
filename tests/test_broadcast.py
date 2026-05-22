@@ -61,3 +61,59 @@ async def test_run_all_empty_targets() -> None:
 
 # Keep a reference to asyncio so the import is not flagged unused before later tasks.
 _ = asyncio
+
+
+async def test_run_all_all_succeed() -> None:
+    async def call(mac: str, ip: str) -> dict[str, Any]:
+        return {"success": True}
+
+    targets = [("aaa", "192.168.1.1"), ("bbb", "192.168.1.2")]
+    result = await run_all(op="on", targets=targets, call=call, concurrency=16)
+    out = result.to_dict()
+    assert out["total"] == 2
+    assert out["ok"] == 2
+    assert out["failed"] == 0
+    assert {r["mac"] for r in out["results"]} == {"aaa", "bbb"}
+    assert all(r["ok"] is True for r in out["results"])
+    assert all("error" not in r for r in out["results"])
+
+
+async def test_run_all_exception_becomes_per_bulb_error() -> None:
+    async def call(mac: str, ip: str) -> dict[str, Any]:
+        if mac == "bbb":
+            raise RuntimeError("simulated udp timeout")
+        return {"success": True}
+
+    targets = [("aaa", "192.168.1.1"), ("bbb", "192.168.1.2")]
+    result = await run_all(op="off", targets=targets, call=call, concurrency=16)
+    out = result.to_dict()
+    assert out["total"] == 2
+    assert out["ok"] == 1
+    assert out["failed"] == 1
+    by_mac = {r["mac"]: r for r in out["results"]}
+    assert by_mac["aaa"]["ok"] is True
+    assert by_mac["bbb"]["ok"] is False
+    assert by_mac["bbb"]["error"] == "simulated udp timeout"
+
+
+async def test_run_all_results_preserve_target_order() -> None:
+    async def call(mac: str, ip: str) -> dict[str, Any]:
+        # Make "aaa" finish last so completion order != input order.
+        if mac == "aaa":
+            await asyncio.sleep(0.02)
+        return {"success": True}
+
+    targets = [("aaa", "192.168.1.1"), ("bbb", "192.168.1.2"), ("ccc", "192.168.1.3")]
+    result = await run_all(op="on", targets=targets, call=call, concurrency=16)
+    assert [r.mac for r in result.results] == ["aaa", "bbb", "ccc"]
+
+
+async def test_run_all_per_bulb_duration_is_recorded() -> None:
+    async def call(mac: str, ip: str) -> dict[str, Any]:
+        await asyncio.sleep(0.01)
+        return {"success": True}
+
+    result = await run_all(
+        op="on", targets=[("aaa", "192.168.1.1")], call=call, concurrency=16
+    )
+    assert result.results[0].duration_ms >= 5
