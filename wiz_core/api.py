@@ -9,6 +9,7 @@ from typing import Annotated, Any, Protocol
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
+from .broadcast import run_all
 from .bulb import BulbError
 from .onboard import OnboardResult
 from .onboard import onboard as run_onboard
@@ -154,6 +155,64 @@ def create_app(
             return await bulb.set_pilot(target_bulb.last_ip, **params)
         except BulbError as e:
             raise HTTPException(504, str(e)) from e
+
+    async def _broadcast(op: str, params: dict[str, Any]) -> dict[str, Any]:
+        """Apply one setPilot param dict to every registered bulb, best-effort.
+
+        Always returns the A2 envelope (HTTP 200). Per-bulb failures are caught
+        by run_all and surfaced in each bulb's `error` field; no exception ever
+        escapes this coroutine.
+        """
+        bulbs = registry.all()
+        targets = [(b.mac, b.last_ip) for b in bulbs]
+
+        async def call(_mac: str, ip: str) -> dict[str, Any]:
+            return await bulb.set_pilot(ip, **params)
+
+        result = await run_all(
+            op=op,
+            targets=targets,
+            call=call,
+            concurrency=_concurrency_cap(len(targets)),
+        )
+        return result.to_dict()
+
+    # Broadcast routes MUST be registered before the parametrized /bulb/{target}/...
+    # routes. Starlette 1.x matches in registration order; a static path segment
+    # ("all") does not outrank a path parameter by position alone.
+    @app.post("/bulb/all/on")
+    async def all_on() -> dict[str, Any]:
+        return await _broadcast("on", {"state": True})
+
+    @app.post("/bulb/all/off")
+    async def all_off() -> dict[str, Any]:
+        return await _broadcast("off", {"state": False})
+
+    @app.post("/bulb/all/brightness")
+    async def all_brightness(body: BrightnessIn) -> dict[str, Any]:
+        return await _broadcast("brightness", {"dimming": int(body.level)})
+
+    @app.post("/bulb/all/temp")
+    async def all_temp(body: TempIn) -> dict[str, Any]:
+        return await _broadcast("temp", {"temp": int(body.kelvin)})
+
+    @app.post("/bulb/all/color")
+    async def all_color(body: ColorIn) -> dict[str, Any]:
+        return await _broadcast("color", {"r": int(body.r), "g": int(body.g), "b": int(body.b)})
+
+    @app.post("/bulb/all/scene")
+    async def all_scene(body: SceneIn) -> dict[str, Any]:
+        # An unknown scene id/name is wrong for EVERY bulb, so fail the whole
+        # request fast with 400 (mirrors the single-bulb /scene handler) rather
+        # than reporting it as a per-bulb error against all N bulbs.
+        try:
+            sid = resolve_scene(body.scene)
+        except ValueError as e:
+            raise HTTPException(400, str(e)) from e
+        params: dict[str, Any] = {"sceneId": sid}
+        if body.speed is not None:
+            params["speed"] = body.speed
+        return await _broadcast("scene", params)
 
     @app.post("/bulb/{target}/on")
     async def on(target: str) -> dict[str, Any]:

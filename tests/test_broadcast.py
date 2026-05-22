@@ -177,3 +177,134 @@ def test_concurrency_cap_floors_at_1_for_empty_registry(monkeypatch: Any) -> Non
     """asyncio.Semaphore requires value >= 1; n=0 must not produce 0."""
     monkeypatch.delenv("WIZ_ALL_CONCURRENCY", raising=False)
     assert _concurrency_cap(0) == 1
+
+
+from pathlib import Path  # noqa: E402
+
+from fastapi.testclient import TestClient  # noqa: E402
+
+from wiz_core.api import create_app  # noqa: E402
+from wiz_core.bulb import BulbError  # noqa: E402
+from wiz_core.registry import Registry  # noqa: E402
+
+
+class _StubClient:
+    """In-memory bulb driver: records every set_pilot call, never fails."""
+
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, dict[str, Any]]] = []
+
+    async def get_pilot(self, ip: str) -> dict[str, Any]:
+        return {"state": True}
+
+    async def set_pilot(self, ip: str, **params: Any) -> dict[str, Any]:
+        self.calls.append((ip, params))
+        return {"success": True}
+
+
+def _make_client(macs_ips: list[tuple[str, str]]) -> tuple[TestClient, _StubClient]:
+    """Build a TestClient whose registry holds exactly `macs_ips`."""
+    import tempfile
+
+    reg = Registry(Path(tempfile.mkdtemp()) / "state.json")
+    for mac, ip in macs_ips:
+        reg.upsert_discovered({"mac": mac, "ip": ip, "rssi": -60})
+    stub = _StubClient()
+
+    async def fake_discover() -> int:
+        return 0
+
+    app = create_app(registry=reg, bulb=stub, run_discovery=fake_discover)
+    return TestClient(app), stub
+
+
+_THREE_BULBS = [
+    ("d8a0118dc5c3", "192.168.1.3"),
+    ("d8a011c0a795", "192.168.1.4"),
+    ("d8a011c09c4f", "192.168.1.5"),
+]
+
+
+def test_all_on_flips_every_bulb() -> None:
+    c, stub = _make_client(_THREE_BULBS)
+    r = c.post("/bulb/all/on")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["op"] == "on"
+    assert body["total"] == 3
+    assert body["ok"] == 3
+    assert body["failed"] == 0
+    assert isinstance(body["duration_ms"], int)
+    assert {res["mac"] for res in body["results"]} == {m for m, _ in _THREE_BULBS}
+    assert all(res["ok"] is True for res in body["results"])
+    # every bulb got setPilot state=True
+    assert all(p == {"state": True} for _ip, p in stub.calls)
+
+
+def test_all_off_flips_every_bulb() -> None:
+    c, stub = _make_client(_THREE_BULBS)
+    r = c.post("/bulb/all/off")
+    assert r.status_code == 200
+    assert r.json()["op"] == "off"
+    assert r.json()["ok"] == 3
+    assert all(p == {"state": False} for _ip, p in stub.calls)
+
+
+def test_all_brightness_applies_level() -> None:
+    c, stub = _make_client(_THREE_BULBS)
+    r = c.post("/bulb/all/brightness", json={"level": 55})
+    assert r.status_code == 200
+    assert r.json()["op"] == "brightness"
+    assert r.json()["ok"] == 3
+    assert all(p == {"dimming": 55} for _ip, p in stub.calls)
+
+
+def test_all_brightness_validates_body() -> None:
+    c, _ = _make_client(_THREE_BULBS)
+    r = c.post("/bulb/all/brightness", json={"level": 999})
+    assert r.status_code == 422  # Pydantic rejects before the handler runs
+
+
+def test_all_temp_applies_kelvin() -> None:
+    c, stub = _make_client(_THREE_BULBS)
+    r = c.post("/bulb/all/temp", json={"kelvin": 4000})
+    assert r.status_code == 200
+    assert r.json()["op"] == "temp"
+    assert r.json()["ok"] == 3
+    assert all(p == {"temp": 4000} for _ip, p in stub.calls)
+
+
+def test_all_color_applies_rgb() -> None:
+    c, stub = _make_client(_THREE_BULBS)
+    r = c.post("/bulb/all/color", json={"r": 255, "g": 0, "b": 100})
+    assert r.status_code == 200
+    assert r.json()["op"] == "color"
+    assert r.json()["ok"] == 3
+    assert all(p == {"r": 255, "g": 0, "b": 100} for _ip, p in stub.calls)
+
+
+def test_all_scene_by_name_applies_scene_id() -> None:
+    c, stub = _make_client(_THREE_BULBS)
+    r = c.post("/bulb/all/scene", json={"scene": "cozy"})
+    assert r.status_code == 200
+    assert r.json()["op"] == "scene"
+    assert r.json()["ok"] == 3
+    assert all(p == {"sceneId": 6} for _ip, p in stub.calls)  # cozy == id 6
+
+
+def test_all_scene_with_speed() -> None:
+    c, stub = _make_client(_THREE_BULBS)
+    r = c.post("/bulb/all/scene", json={"scene": "party", "speed": 120})
+    assert r.status_code == 200
+    assert all(p == {"sceneId": 4, "speed": 120} for _ip, p in stub.calls)  # party == 4
+
+
+def test_all_scene_unknown_name_is_400_before_any_bulb_touched() -> None:
+    c, stub = _make_client(_THREE_BULBS)
+    r = c.post("/bulb/all/scene", json={"scene": "nonsense"})
+    assert r.status_code == 400
+    assert stub.calls == []  # fail fast: no bulb was contacted
+
+
+# silence "unused import" until later tasks use BulbError
+_ = BulbError
