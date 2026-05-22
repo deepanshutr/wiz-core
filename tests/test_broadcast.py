@@ -117,3 +117,29 @@ async def test_run_all_per_bulb_duration_is_recorded() -> None:
         op="on", targets=[("aaa", "192.168.1.1")], call=call, concurrency=16
     )
     assert result.results[0].duration_ms >= 5
+
+
+async def test_run_all_respects_concurrency_cap() -> None:
+    """No more than `concurrency` bulb calls may be in flight simultaneously."""
+    in_flight = 0
+    peak = 0
+    lock = asyncio.Lock()
+
+    async def call(mac: str, ip: str) -> dict[str, Any]:
+        nonlocal in_flight, peak
+        async with lock:
+            in_flight += 1
+            peak = max(peak, in_flight)
+        try:
+            await asyncio.sleep(0.02)
+        finally:
+            async with lock:
+                in_flight -= 1
+        return {"success": True}
+
+    targets = [(f"mac{i:02d}", f"192.168.1.{i}") for i in range(20)]
+    result = await run_all(op="on", targets=targets, call=call, concurrency=4)
+
+    assert result.to_dict()["ok"] == 20
+    assert peak <= 4, f"concurrency cap breached: peak={peak}, expected <= 4"
+    assert peak >= 2, f"semaphore appears to serialise everything: peak={peak}"
