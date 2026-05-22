@@ -356,3 +356,37 @@ def test_all_on_one_bulb_timeout_still_200_and_partial_ok() -> None:
     assert "error" in failed
     assert "udp timeout" in failed["error"]
     assert "error" not in by_mac["d8a0118dc5c3"]  # success rows carry no error key
+
+
+class _AllBulbsFailClient(_StubClient):
+    """Every set_pilot call raises BulbError."""
+
+    async def set_pilot(self, ip: str, **params: Any) -> dict[str, Any]:
+        raise BulbError("simulated total LAN outage")
+
+
+def test_all_on_every_bulb_fails_still_200() -> None:
+    import tempfile
+
+    reg = Registry(Path(tempfile.mkdtemp()) / "state.json")
+    for mac, ip in _THREE_BULBS:
+        reg.upsert_discovered({"mac": mac, "ip": ip, "rssi": -60})
+
+    async def fake_discover() -> int:
+        return 0
+
+    app = create_app(registry=reg, bulb=_AllBulbsFailClient(), run_discovery=fake_discover)
+    c = TestClient(app)
+
+    r = c.post("/bulb/all/on")
+    assert r.status_code == 200  # still 200 even when nothing worked
+    body = r.json()
+    assert body["op"] == "on"
+    assert body["total"] == 3
+    assert body["ok"] == 0
+    assert body["failed"] == 3
+    assert len(body["results"]) == 3
+    for res in body["results"]:
+        assert res["ok"] is False
+        assert "error" in res
+        assert "simulated total LAN outage" in res["error"]
