@@ -49,6 +49,12 @@ class OnboardIn(BaseModel):
     ssid: str = Field(min_length=1, max_length=64)
     password: str = Field(min_length=1, max_length=128)
     timeout_s: int = Field(60, ge=10, le=300)
+    # Accepted for cross-daemon body uniformity (amendment §A6.1) and
+    # intentionally unused: ESP-TOUCH is an over-the-air broadcast with
+    # no setup AP to select. Only yeelight-core consumes setup_ssid.
+    # No `extra="forbid"` — the model must tolerate this field so a
+    # multiplexer can POST one uniform body to every -core daemon.
+    setup_ssid: str | None = Field(default=None, max_length=64)
 
 
 def _bulb_payload(b: Bulb) -> dict[str, Any]:

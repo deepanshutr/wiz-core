@@ -241,3 +241,31 @@ def test_onboard_validates_required_fields(client) -> None:
     c, *_ = client
     r = c.post("/onboard", json={"password": "pw"})
     assert r.status_code == 422  # missing ssid
+
+
+def test_onboard_tolerates_extra_setup_ssid_field(client, mocker) -> None:
+    """A body carrying setup_ssid (for yeelight-core) is accepted, not 422'd.
+
+    The multiplexer POSTs one uniform body to every daemon; wiz-core must
+    accept-and-ignore setup_ssid since ESP-TOUCH has no setup AP (§A6.1).
+    """
+    from wiz_core.onboard import OnboardResult
+
+    async def fake_onboard(**kwargs):
+        # The handler must not receive / forward setup_ssid.
+        assert "setup_ssid" not in kwargs
+        return OnboardResult(status="timeout", attempted_seconds=30)
+
+    mocker.patch("wiz_core.api.run_onboard", new=fake_onboard)
+    c, *_ = client
+    r = c.post(
+        "/onboard",
+        json={
+            "ssid": "home",
+            "password": "pw",
+            "timeout_s": 30,
+            "setup_ssid": "yeelink-light-color4_miapXXXX",
+        },
+    )
+    assert r.status_code != 422  # extra field tolerated, not rejected
+    assert r.status_code == 408  # routed normally to the timeout branch
