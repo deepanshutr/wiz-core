@@ -308,3 +308,51 @@ def test_all_scene_unknown_name_is_400_before_any_bulb_touched() -> None:
 
 # silence "unused import" until later tasks use BulbError
 _ = BulbError
+
+
+class _OneBulbTimesOutClient(_StubClient):
+    """set_pilot raises BulbError for one specific IP, succeeds for the rest."""
+
+    def __init__(self, failing_ip: str) -> None:
+        super().__init__()
+        self.failing_ip = failing_ip
+
+    async def set_pilot(self, ip: str, **params: Any) -> dict[str, Any]:
+        if ip == self.failing_ip:
+            raise BulbError("setPilot to 192.168.1.4: TimeoutError('udp timeout')")
+        return await super().set_pilot(ip, **params)
+
+
+def test_all_on_one_bulb_timeout_still_200_and_partial_ok() -> None:
+    reg_path_holder: list[Any] = []
+
+    import tempfile
+
+    reg = Registry(Path(tempfile.mkdtemp()) / "state.json")
+    for mac, ip in _THREE_BULBS:
+        reg.upsert_discovered({"mac": mac, "ip": ip, "rssi": -60})
+    reg_path_holder.append(reg)
+
+    stub = _OneBulbTimesOutClient(failing_ip="192.168.1.4")  # the d8a011c0a795 bulb
+
+    async def fake_discover() -> int:
+        return 0
+
+    app = create_app(registry=reg, bulb=stub, run_discovery=fake_discover)
+    c = TestClient(app)
+
+    r = c.post("/bulb/all/on")
+    assert r.status_code == 200  # ALWAYS 200, even with a failure
+    body = r.json()
+    assert body["total"] == 3
+    assert body["ok"] == 2
+    assert body["failed"] == 1
+
+    by_mac = {res["mac"]: res for res in body["results"]}
+    assert by_mac["d8a0118dc5c3"]["ok"] is True
+    assert by_mac["d8a011c09c4f"]["ok"] is True
+    failed = by_mac["d8a011c0a795"]
+    assert failed["ok"] is False
+    assert "error" in failed
+    assert "udp timeout" in failed["error"]
+    assert "error" not in by_mac["d8a0118dc5c3"]  # success rows carry no error key
