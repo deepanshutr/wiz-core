@@ -423,3 +423,33 @@ def test_all_scene_empty_registry_unknown_scene_still_400() -> None:
     c, _ = _make_client([])
     r = c.post("/bulb/all/scene", json={"scene": "nonsense"})
     assert r.status_code == 400
+
+
+def test_all_is_not_404_routed_to_broadcast_not_single_bulb() -> None:
+    """`/bulb/all/on` hits the broadcast handler, never the single-bulb 404 path."""
+    c, _ = _make_client(_THREE_BULBS)
+    r = c.post("/bulb/all/on")
+    assert r.status_code == 200
+    # The broadcast envelope has keys a single-bulb response never has.
+    body = r.json()
+    assert set(body) == {"op", "total", "ok", "failed", "duration_ms", "results"}
+
+
+def test_all_route_does_not_shadow_real_single_bulb_routes() -> None:
+    """A genuine MAC target still resolves through /bulb/{target}/on."""
+    c, stub = _make_client(_THREE_BULBS)
+    r = c.post("/bulb/d8a0118dc5c3/on")
+    assert r.status_code == 200
+    # single-bulb response shape: the driver result dict, NOT the A2 envelope
+    assert "results" not in r.json()
+    assert ("192.168.1.3", {"state": True}) in stub.calls
+
+
+def test_literal_all_word_still_404s_as_a_single_bulb_get() -> None:
+    """GET /bulb/all has no route; `all` is not a real bulb, so 404 — and A2
+    explicitly does NOT add GET /bulb/all."""
+    c, _ = _make_client(_THREE_BULBS)
+    r = c.get("/bulb/all")
+    # `all` is not a registered MAC/name, GET /bulb/all/{op} family is POST-only,
+    # and GET /bulb/{target} resolves "all" -> None -> 404.
+    assert r.status_code == 404
