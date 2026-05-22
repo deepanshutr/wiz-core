@@ -110,7 +110,7 @@ wheels = [
 [[package]]
 name = "esptouch"
 version = "0.1.0"
-source = { git = "https://github.com/deepanshutr/esptouch.git#353ce139f40fde91ab75de0785cc9b87db08ec02" }
+source = { git = "https://github.com/deepanshutr/esptouch.git#d4fa5283861caf1e16d8f56f4e178f68a135cfec" }
 
 [[package]]
 name = "fastapi"
