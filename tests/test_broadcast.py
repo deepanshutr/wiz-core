@@ -390,3 +390,36 @@ def test_all_on_every_bulb_fails_still_200() -> None:
         assert res["ok"] is False
         assert "error" in res
         assert "simulated total LAN outage" in res["error"]
+
+
+def test_all_on_empty_registry_returns_empty_envelope() -> None:
+    c, stub = _make_client([])  # no bulbs at all
+    r = c.post("/bulb/all/on")
+    assert r.status_code == 200
+    assert r.json() == {
+        "op": "on",
+        "total": 0,
+        "ok": 0,
+        "failed": 0,
+        "duration_ms": r.json()["duration_ms"],
+        "results": [],
+    }
+    assert stub.calls == []  # nothing contacted
+
+
+def test_all_brightness_empty_registry_still_validates_body() -> None:
+    """Body validation runs even when the registry is empty (422 before handler)."""
+    c, _ = _make_client([])
+    r = c.post("/bulb/all/brightness", json={"level": 999})
+    assert r.status_code == 422
+    # ...and a valid body against an empty registry is a clean empty envelope:
+    r = c.post("/bulb/all/brightness", json={"level": 50})
+    assert r.status_code == 200
+    assert r.json()["total"] == 0
+
+
+def test_all_scene_empty_registry_unknown_scene_still_400() -> None:
+    """Scene resolution happens before the (empty) fan-out, so 400 still wins."""
+    c, _ = _make_client([])
+    r = c.post("/bulb/all/scene", json={"scene": "nonsense"})
+    assert r.status_code == 400
