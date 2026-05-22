@@ -143,3 +143,37 @@ async def test_run_all_respects_concurrency_cap() -> None:
     assert result.to_dict()["ok"] == 20
     assert peak <= 4, f"concurrency cap breached: peak={peak}, expected <= 4"
     assert peak >= 2, f"semaphore appears to serialise everything: peak={peak}"
+
+
+from wiz_core.api import _concurrency_cap  # noqa: E402 - grouped with broadcast-cap tests
+
+
+def test_concurrency_cap_default_is_min_of_n_and_16(monkeypatch: Any) -> None:
+    monkeypatch.delenv("WIZ_ALL_CONCURRENCY", raising=False)
+    assert _concurrency_cap(7) == 7  # fewer bulbs than the cap
+    assert _concurrency_cap(16) == 16  # exactly the cap
+    assert _concurrency_cap(50) == 16  # more bulbs than the cap -> clamped
+
+
+def test_concurrency_cap_env_override(monkeypatch: Any) -> None:
+    monkeypatch.setenv("WIZ_ALL_CONCURRENCY", "4")
+    assert _concurrency_cap(50) == 4  # env lowers the ceiling
+    assert _concurrency_cap(2) == 2  # still min(n, ceiling)
+
+
+def test_concurrency_cap_env_invalid_falls_back_to_16(monkeypatch: Any) -> None:
+    monkeypatch.setenv("WIZ_ALL_CONCURRENCY", "not-a-number")
+    assert _concurrency_cap(50) == 16
+
+
+def test_concurrency_cap_env_non_positive_falls_back_to_16(monkeypatch: Any) -> None:
+    monkeypatch.setenv("WIZ_ALL_CONCURRENCY", "0")
+    assert _concurrency_cap(50) == 16
+    monkeypatch.setenv("WIZ_ALL_CONCURRENCY", "-3")
+    assert _concurrency_cap(50) == 16
+
+
+def test_concurrency_cap_floors_at_1_for_empty_registry(monkeypatch: Any) -> None:
+    """asyncio.Semaphore requires value >= 1; n=0 must not produce 0."""
+    monkeypatch.delenv("WIZ_ALL_CONCURRENCY", raising=False)
+    assert _concurrency_cap(0) == 1

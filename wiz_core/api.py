@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from collections.abc import Callable, Coroutine
 from typing import Annotated, Any, Protocol
 
@@ -72,6 +73,32 @@ def _bulb_payload(b: Bulb) -> dict[str, Any]:
         "discovered_at": b.discovered_at,
         "last_seen": b.last_seen,
     }
+
+
+# Hard ceiling on concurrent per-bulb UDP calls during a broadcast. Protects
+# the LAN / router from a many-bulb burst. Overridable via WIZ_ALL_CONCURRENCY
+# (a positive integer). Pinned by amendment Section A2.
+_ALL_CONCURRENCY_DEFAULT = 16
+
+
+def _concurrency_cap(n_bulbs: int) -> int:
+    """Concurrency bound for a broadcast over `n_bulbs` bulbs.
+
+    Returns ``min(n_bulbs, ceiling)`` where ``ceiling`` is 16 by default or the
+    value of the ``WIZ_ALL_CONCURRENCY`` env var when that is a positive
+    integer. Always returns at least 1, because ``asyncio.Semaphore`` rejects
+    a value below 1 (an empty registry would otherwise yield 0).
+    """
+    ceiling = _ALL_CONCURRENCY_DEFAULT
+    raw = os.environ.get("WIZ_ALL_CONCURRENCY")
+    if raw is not None:
+        try:
+            parsed = int(raw)
+        except ValueError:
+            parsed = 0
+        if parsed > 0:
+            ceiling = parsed
+    return max(1, min(n_bulbs, ceiling))
 
 
 def create_app(
