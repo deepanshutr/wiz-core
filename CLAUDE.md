@@ -30,3 +30,10 @@ Local HTTP daemon for Philips WiZ smart bulbs.
   knobs trip `status=218`.
 - The WiZ JSON-over-UDP protocol is undocumented; field names are case-sensitive
   (`sceneId` not `scene_id`, `dimming` 10-100 not 0-100).
+- ESP-TOUCH onboarding is provided by the standalone `esptouch` library
+  (a git dependency — `esptouch @ git+https://github.com/deepanshutr/esptouch.git`),
+  NOT a `wiz_core` sub-package. The handler `wiz_core/onboard.py` imports
+  `from esptouch import run, NewBulb, EsptouchError` and owns discovery
+  polling. The encoding audit (`python -m esptouch.audit`) is a CI gate
+  in the `esptouch` repo, not here. ESP-TOUCH is 2.4 GHz only and
+  broadcasts to 255.255.255.255.
